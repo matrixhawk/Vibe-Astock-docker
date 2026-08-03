@@ -25,6 +25,13 @@ ghcr.io/matrixhawk/vibe-astock-docker:latest
 
 如果你把本项目发布到其他 GitHub 账号，请在 `.env` 中修改 `IMAGE_NAME`。
 
+GHCR 镜像包的可见性与 GitHub 仓库分开管理。如果拉取镜像时收到 `401`，先登录 GHCR：
+
+```bash
+docker login ghcr.io
+docker compose up -d
+```
+
 查看日志和停止服务：
 
 ```bash
