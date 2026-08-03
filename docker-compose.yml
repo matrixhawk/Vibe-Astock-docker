@@ -1,0 +1,24 @@
+services:
+  vibe-astock:
+    image: ${IMAGE_NAME:-ghcr.io/matrixhawk/vibe-astock-docker:latest}
+    pull_policy: always
+    ports:
+      - "${HOST_PORT:-5898}:8080"
+    environment:
+      HOME: /data
+      UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
+      VR_API_KEY: ${VR_API_KEY:-}
+      VR_ALLOW_ORIGINS: ${VR_ALLOW_ORIGINS:-*}
+      VIBE_ALLOW_HOSTS: ${VIBE_ALLOW_HOSTS:-}
+      VIBE_MARKET_PROXY: ${VIBE_MARKET_PROXY:-}
+      VIBE_MARKET_DIRECT: ${VIBE_MARKET_DIRECT:-}
+      MIMO_API_KEY: ${MIMO_API_KEY:-}
+      MIMO_BASE_URL: ${MIMO_BASE_URL:-}
+      MIMO_MODEL: ${MIMO_MODEL:-}
+      IWENCAI_API_KEY: ${IWENCAI_API_KEY:-}
+    volumes:
+      - vibe_astock_data:/data
+    restart: unless-stopped
+
+volumes:
+  vibe_astock_data:

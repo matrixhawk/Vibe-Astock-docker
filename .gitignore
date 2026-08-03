@@ -1,0 +1,6 @@
+.env
+.DS_Store
+*.log
+task_plan.md
+findings.md
+progress.md
