@@ -99,7 +99,11 @@ Compose 将 `/data` 挂载到 `vibe_astock_data` 命名卷。通过 `HOME=/data`
 
 ## 镜像发布
 
-`.github/workflows/publish-image.yml` 会在 `main` 变更容器文件时，以及每 6 小时定时构建并发布：
+`.github/workflows/publish-image.yml` 会在 `main` 变更容器文件时构建发布，并每 6 小时检查一次上游 `main`：
+
+- 上游 SHA 没有变化：跳过构建和推送。
+- 上游 SHA 发生变化：构建并发布新镜像。
+- 本仓库 `main` 有相关文件变更，或手动运行 workflow：仍会强制构建发布。
 
 - `linux/amd64`
 - `linux/arm64`
