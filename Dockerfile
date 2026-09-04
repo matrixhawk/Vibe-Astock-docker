@@ -15,6 +15,10 @@ WORKDIR /src
 RUN git clone --filter=blob:none "$VIBE_ASTOCK_REPO" . \
     && git fetch --depth 1 origin "$VIBE_ASTOCK_REF" \
     && git checkout FETCH_HEAD
+COPY docker/patches/mimo-model.patch /tmp/mimo-model.patch
+RUN git apply --check /tmp/mimo-model.patch \
+    && git apply /tmp/mimo-model.patch \
+    && rm /tmp/mimo-model.patch
 
 FROM node:22-bookworm-slim AS frontend-builder
 WORKDIR /src/frontend

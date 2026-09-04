@@ -92,6 +92,8 @@ Compose 会把常用配置传入容器：
 
 `MIMO_CONFIG_DIR` 默认指向宿主机的 `$HOME/.config/mimo`，容器以只读方式将它挂载为 `/data/.config/mimo`，其中的 `mimo.env` 会被上游读取。如果使用 `MIMO_*` 环境变量直接配置，则无需该文件；两种方式都不要把真实 API key 提交到仓库。
 
+构建镜像时会自动应用 [MiMo 模型配置补丁](docker/patches/mimo-model.patch)：复盘的快速档和深度档都会优先读取 `MIMO_MODEL`，不再把快速档固定为 `mimo-v2.5`；未设置时仍使用上游默认模型。
+
 不要把真实 API key 写入仓库；`.env` 已被 `.gitignore` 忽略。容器默认没有安装本机 Claude/Codex 等 CLI，LLM 建议通过 API 配置使用。
 
 ## 数据持久化

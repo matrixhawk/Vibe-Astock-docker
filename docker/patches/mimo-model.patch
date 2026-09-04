@@ -1,0 +1,13 @@
+diff --git a/duanxian/config.py b/duanxian/config.py
+--- a/duanxian/config.py
++++ b/duanxian/config.py
+@@ -24,2 +24,2 @@
+-# quick / deep 两档模型名。deep 优先用环境里的 MIMO_MODEL（默认 pro）。
++# quick / deep 两档模型名。MIMO_MODEL 优先用于两档；未配置时沿用上游默认值。
+ QUICK_MODEL = "mimo-v2.5"
+@@ -58,4 +58,4 @@
+     base_url = _CREDS.get("MIMO_BASE_URL") or "https://token-plan-cn.xiaomimimo.com/v1"
+     api_key = _CREDS["MIMO_API_KEY"]
+-    model = (_CREDS.get("MIMO_MODEL") or "mimo-v2.5-pro") if deep else QUICK_MODEL
++    model = _CREDS.get("MIMO_MODEL") or ("mimo-v2.5-pro" if deep else QUICK_MODEL)
+     return ChatOpenAI(
