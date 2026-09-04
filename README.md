@@ -15,6 +15,8 @@ cp .env.example .env
 docker compose up -d
 ```
 
+上游 v0.2.0 默认从 `~/.config/mimo/mimo.env` 读取 MiMo 凭据。Compose 会将宿主机的 `~/.config/mimo` 目录以只读方式挂载到容器内的 `/data/.config/mimo`；如果目录不在默认位置，请在 `.env` 中设置 `MIMO_CONFIG_DIR` 为宿主机上的绝对路径。也可以直接在 `.env` 中填写 `MIMO_API_KEY`、`MIMO_BASE_URL` 和 `MIMO_MODEL`，不依赖凭据文件。
+
 打开 <http://localhost:5898>。
 
 默认 Compose 镜像为：
@@ -82,10 +84,13 @@ Compose 会把常用配置传入容器：
 | `VR_API_KEY` | 给盘面数据接口增加可选的 Bearer key 校验 |
 | `VR_ALLOW_ORIGINS` | 盘面数据接口的 CORS 来源白名单 |
 | `VIBE_ALLOW_HOSTS` | 允许写操作的 Host 白名单 |
+| `MIMO_CONFIG_DIR` | 宿主机 MiMo 凭据目录，默认 `$HOME/.config/mimo` |
 | `MIMO_API_KEY` / `MIMO_BASE_URL` / `MIMO_MODEL` | 可选的 OpenAI 兼容 LLM 配置 |
 | `IWENCAI_API_KEY` | 可选的同花顺问财题材数据 key |
 | `VIBE_MARKET_PROXY` / `VIBE_MARKET_DIRECT` | 市场数据源的代理/直连回退开关 |
 | `UVICORN_WORKERS` | Uvicorn worker 数量，建议保持 `1` 以避免本地缓存竞争 |
+
+`MIMO_CONFIG_DIR` 默认指向宿主机的 `$HOME/.config/mimo`，容器以只读方式将它挂载为 `/data/.config/mimo`，其中的 `mimo.env` 会被上游读取。如果使用 `MIMO_*` 环境变量直接配置，则无需该文件；两种方式都不要把真实 API key 提交到仓库。
 
 不要把真实 API key 写入仓库；`.env` 已被 `.gitignore` 忽略。容器默认没有安装本机 Claude/Codex 等 CLI，LLM 建议通过 API 配置使用。
 
@@ -96,6 +101,7 @@ Compose 将 `/data` 挂载到 `vibe_astock_data` 命名卷。通过 `HOME=/data`
 - `/data/.duanxian-agents/`：复盘、周报和缓存。
 - `/data/.vibe-research/`：持仓、资讯和盘面数据。
 - `/data/.vibe-astock/`：自定义 prompt 等用户配置。
+- `/data/.config/mimo/mimo.env`：宿主机 MiMo 凭据目录中的文件，以只读方式挂载，不由数据卷保存。
 
 ## 镜像发布
 

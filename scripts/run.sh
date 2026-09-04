@@ -13,8 +13,9 @@ set -eu
 : "${MIMO_BASE_URL:=}"
 : "${MIMO_MODEL:=}"
 : "${IWENCAI_API_KEY:=}"
+: "${MIMO_CONFIG_DIR:=${HOME:-}/.config/mimo}"
 
-docker run --rm \
+set -- run --rm \
   --name vibe-astock \
   -p "$HOST_PORT:8080" \
   -e HOME=/data \
@@ -28,5 +29,11 @@ docker run --rm \
   -e "MIMO_BASE_URL=$MIMO_BASE_URL" \
   -e "MIMO_MODEL=$MIMO_MODEL" \
   -e "IWENCAI_API_KEY=$IWENCAI_API_KEY" \
-  -v vibe_astock_data:/data \
-  "$IMAGE_NAME"
+  -v vibe_astock_data:/data
+
+if [ -d "$MIMO_CONFIG_DIR" ]; then
+  set -- "$@" --mount "type=bind,source=$MIMO_CONFIG_DIR,target=/data/.config/mimo,readonly"
+fi
+
+set -- "$@" "$IMAGE_NAME"
+docker "$@"

@@ -18,6 +18,10 @@ services:
       IWENCAI_API_KEY: ${IWENCAI_API_KEY:-}
     volumes:
       - vibe_astock_data:/data
+      - type: bind
+        source: ${MIMO_CONFIG_DIR:-${HOME}/.config/mimo}
+        target: /data/.config/mimo
+        read_only: true
     restart: unless-stopped
 
 volumes:
