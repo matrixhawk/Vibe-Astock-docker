@@ -3,37 +3,44 @@ set -eu
 
 : "${IMAGE_NAME:=vibe-astock:local}"
 : "${HOST_PORT:=5898}"
-: "${UVICORN_WORKERS:=1}"
-: "${VR_API_KEY:=}"
-: "${VR_ALLOW_ORIGINS:=*}"
-: "${VIBE_ALLOW_HOSTS:=}"
-: "${VIBE_MARKET_PROXY:=}"
-: "${VIBE_MARKET_DIRECT:=}"
+: "${VRA_LAN:=1}"
+: "${VRA_SCHEDULER:=on}"
+: "${VRA_API_TOKEN:=}"
+: "${VRA_REMOTE:=}"
+: "${VRA_ACCESS_TOKEN:=}"
+: "${VRA_PUBLIC_URL:=}"
+: "${VRA_PROVIDER:=}"
+: "${DEEPSEEK_API_KEY:=}"
+: "${ZAI_API_KEY:=}"
+: "${MOONSHOT_API_KEY:=}"
 : "${MIMO_API_KEY:=}"
-: "${MIMO_BASE_URL:=}"
-: "${MIMO_MODEL:=}"
-: "${IWENCAI_API_KEY:=}"
-: "${MIMO_CONFIG_DIR:=${HOME:-}/.config/mimo}"
+: "${OPENAI_API_KEY:=}"
+: "${DASHSCOPE_API_KEY:=}"
+: "${SELFHOSTED_API_KEY:=}"
 
 set -- run --rm \
   --name vibe-astock \
   -p "$HOST_PORT:8080" \
   -e HOME=/data \
-  -e "UVICORN_WORKERS=$UVICORN_WORKERS" \
-  -e "VR_API_KEY=$VR_API_KEY" \
-  -e "VR_ALLOW_ORIGINS=$VR_ALLOW_ORIGINS" \
-  -e "VIBE_ALLOW_HOSTS=$VIBE_ALLOW_HOSTS" \
-  -e "VIBE_MARKET_PROXY=$VIBE_MARKET_PROXY" \
-  -e "VIBE_MARKET_DIRECT=$VIBE_MARKET_DIRECT" \
+  -e VRA_DATA_ROOT=/data/.local \
+  -e VRA_UI_PORT=8080 \
+  -e VRA_API_PORT=8770 \
+  -e VRA_PYTHON=/opt/venv/bin/python \
+  -e "VRA_LAN=$VRA_LAN" \
+  -e "VRA_SCHEDULER=$VRA_SCHEDULER" \
+  -e "VRA_API_TOKEN=$VRA_API_TOKEN" \
+  -e "VRA_REMOTE=$VRA_REMOTE" \
+  -e "VRA_ACCESS_TOKEN=$VRA_ACCESS_TOKEN" \
+  -e "VRA_PUBLIC_URL=$VRA_PUBLIC_URL" \
+  -e "VRA_PROVIDER=$VRA_PROVIDER" \
+  -e "DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY" \
+  -e "ZAI_API_KEY=$ZAI_API_KEY" \
+  -e "MOONSHOT_API_KEY=$MOONSHOT_API_KEY" \
   -e "MIMO_API_KEY=$MIMO_API_KEY" \
-  -e "MIMO_BASE_URL=$MIMO_BASE_URL" \
-  -e "MIMO_MODEL=$MIMO_MODEL" \
-  -e "IWENCAI_API_KEY=$IWENCAI_API_KEY" \
-  -v vibe_astock_data:/data
+  -e "OPENAI_API_KEY=$OPENAI_API_KEY" \
+  -e "DASHSCOPE_API_KEY=$DASHSCOPE_API_KEY" \
+  -e "SELFHOSTED_API_KEY=$SELFHOSTED_API_KEY" \
+  -v vibe_astock_data:/data \
+  "$IMAGE_NAME"
 
-if [ -d "$MIMO_CONFIG_DIR" ]; then
-  set -- "$@" --mount "type=bind,source=$MIMO_CONFIG_DIR,target=/data/.config/mimo,readonly"
-fi
-
-set -- "$@" "$IMAGE_NAME"
 docker "$@"

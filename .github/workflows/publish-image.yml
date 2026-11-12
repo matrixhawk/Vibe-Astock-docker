@@ -7,6 +7,7 @@ on:
     paths:
       - Dockerfile
       - docker/**
+      - scripts/check-upstream-v2.sh
       - .github/workflows/publish-image.yml
   schedule:
     - cron: "17 */6 * * *"
@@ -58,16 +59,24 @@ jobs:
           path: .upstream-cache
           key: vibe-astock-upstream-main-${{ steps.upstream.outputs.sha }}
 
+      - name: 恢复已失败标记
+        id: failed
+        uses: actions/cache/restore@v4
+        with:
+          path: .upstream-failure-cache
+          key: vibe-astock-upstream-main-failed-${{ steps.upstream.outputs.sha }}-${{ github.sha }}
+
       - name: 判断是否需要发布
         id: decision
         shell: bash
         env:
           CACHE_HIT: ${{ steps.published.outputs.cache-hit }}
+          FAILED_CACHE_HIT: ${{ steps.failed.outputs.cache-hit }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [[ "$EVENT_NAME" == "schedule" && "$CACHE_HIT" == "true" ]]; then
+          if [[ "$EVENT_NAME" == "schedule" && ("$CACHE_HIT" == "true" || "$FAILED_CACHE_HIT" == "true") ]]; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "上游 SHA 未变化，跳过镜像构建和推送。"
+            echo "上游 SHA 已成功发布或已记录失败，跳过本次定时构建。"
           else
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
             echo "本次事件需要构建并推送镜像。"
@@ -85,6 +94,35 @@ jobs:
     steps:
       - name: 检出仓库
         uses: actions/checkout@v4
+
+      - name: 确定上游构建 ref
+        id: build_ref
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_REF: ${{ inputs.vibe_astock_ref }}
+          UPSTREAM_SHA: ${{ needs.check-upstream.outputs.upstream_sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$MANUAL_REF" != "main" ]]; then
+            ref="$MANUAL_REF"
+          else
+            ref="$UPSTREAM_SHA"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "构建上游 ref: $ref"
+
+      - name: 校验上游 v2 结构
+        shell: bash
+        env:
+          BUILD_REF: ${{ steps.build_ref.outputs.ref }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          git clone --filter=blob:none --no-checkout "$VIBE_ASTOCK_REPO" "$tmp"
+          git -C "$tmp" fetch --depth 1 origin "$BUILD_REF"
+          git -C "$tmp" checkout --detach FETCH_HEAD
+          sh scripts/check-upstream-v2.sh "$tmp"
 
       - name: 启用 QEMU
         uses: docker/setup-qemu-action@v3
@@ -109,24 +147,11 @@ jobs:
             type=sha,format=short
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-
-      - name: 确定上游构建 ref
-        id: build_ref
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          MANUAL_REF: ${{ inputs.vibe_astock_ref }}
-          UPSTREAM_SHA: ${{ needs.check-upstream.outputs.upstream_sha }}
-        run: |
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$MANUAL_REF" != "main" ]]; then
-            ref="$MANUAL_REF"
-          else
-            ref="$UPSTREAM_SHA"
-          fi
-          echo "ref=$ref" >> "$GITHUB_OUTPUT"
-          echo "构建上游 ref: $ref"
+            org.opencontainers.image.revision=${{ steps.build_ref.outputs.ref }}
+            org.opencontainers.image.title=Vibe AStock
 
       - name: 构建并推送镜像
+        id: publish
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -137,11 +162,11 @@ jobs:
             VIBE_ASTOCK_REF=${{ steps.build_ref.outputs.ref }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=vibe-astock-v2
+          cache-to: type=gha,mode=max,scope=vibe-astock-v2
 
       - name: 准备上游版本标记
-        if: ${{ steps.build_ref.outputs.ref == needs.check-upstream.outputs.upstream_sha }}
+        if: ${{ success() && steps.build_ref.outputs.ref == needs.check-upstream.outputs.upstream_sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -154,3 +179,18 @@ jobs:
         with:
           path: .upstream-cache
           key: vibe-astock-upstream-main-${{ needs.check-upstream.outputs.upstream_sha }}
+
+      - name: 准备上游失败标记
+        if: ${{ always() && github.event_name == 'schedule' && steps.publish.outcome == 'failure' && steps.build_ref.outputs.ref == needs.check-upstream.outputs.upstream_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .upstream-failure-cache
+          printf '%s\n' "${{ needs.check-upstream.outputs.upstream_sha }}" > .upstream-failure-cache/main.sha
+
+      - name: 保存上游失败标记
+        if: ${{ always() && github.event_name == 'schedule' && steps.publish.outcome == 'failure' && steps.build_ref.outputs.ref == needs.check-upstream.outputs.upstream_sha }}
+        uses: actions/cache/save@v4
+        with:
+          path: .upstream-failure-cache
+          key: vibe-astock-upstream-main-failed-${{ needs.check-upstream.outputs.upstream_sha }}-${{ github.sha }}

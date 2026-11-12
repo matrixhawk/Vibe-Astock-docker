@@ -6,22 +6,26 @@ services:
       - "${HOST_PORT:-5898}:8080"
     environment:
       HOME: /data
-      UVICORN_WORKERS: ${UVICORN_WORKERS:-1}
-      VR_API_KEY: ${VR_API_KEY:-}
-      VR_ALLOW_ORIGINS: ${VR_ALLOW_ORIGINS:-*}
-      VIBE_ALLOW_HOSTS: ${VIBE_ALLOW_HOSTS:-}
-      VIBE_MARKET_PROXY: ${VIBE_MARKET_PROXY:-}
-      VIBE_MARKET_DIRECT: ${VIBE_MARKET_DIRECT:-}
+      VRA_DATA_ROOT: /data/.local
+      VRA_UI_PORT: 8080
+      VRA_API_PORT: 8770
+      VRA_PYTHON: /opt/venv/bin/python
+      VRA_LAN: ${VRA_LAN:-1}
+      VRA_SCHEDULER: ${VRA_SCHEDULER:-on}
+      VRA_API_TOKEN: ${VRA_API_TOKEN:-}
+      VRA_REMOTE: ${VRA_REMOTE:-}
+      VRA_ACCESS_TOKEN: ${VRA_ACCESS_TOKEN:-}
+      VRA_PUBLIC_URL: ${VRA_PUBLIC_URL:-}
+      VRA_PROVIDER: ${VRA_PROVIDER:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      ZAI_API_KEY: ${ZAI_API_KEY:-}
+      MOONSHOT_API_KEY: ${MOONSHOT_API_KEY:-}
       MIMO_API_KEY: ${MIMO_API_KEY:-}
-      MIMO_BASE_URL: ${MIMO_BASE_URL:-}
-      MIMO_MODEL: ${MIMO_MODEL:-}
-      IWENCAI_API_KEY: ${IWENCAI_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
+      SELFHOSTED_API_KEY: ${SELFHOSTED_API_KEY:-}
     volumes:
       - vibe_astock_data:/data
-      - type: bind
-        source: ${MIMO_CONFIG_DIR:-${HOME}/.config/mimo}
-        target: /data/.config/mimo
-        read_only: true
     restart: unless-stopped
 
 volumes:

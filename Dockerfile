@@ -12,57 +12,84 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
-RUN git clone --filter=blob:none "$VIBE_ASTOCK_REPO" . \
+RUN git clone --filter=blob:none --no-checkout "$VIBE_ASTOCK_REPO" . \
     && git fetch --depth 1 origin "$VIBE_ASTOCK_REF" \
-    && git checkout FETCH_HEAD
-COPY docker/patches/mimo-model.patch /tmp/mimo-model.patch
-RUN git apply --check /tmp/mimo-model.patch \
-    && git apply /tmp/mimo-model.patch \
-    && rm /tmp/mimo-model.patch
+    && git checkout --detach FETCH_HEAD
 
-FROM node:22-bookworm-slim AS frontend-builder
-WORKDIR /src/frontend
+COPY scripts/check-upstream-v2.sh /usr/local/bin/check-upstream-v2
+RUN chmod +x /usr/local/bin/check-upstream-v2 \
+    && /usr/local/bin/check-upstream-v2 /src \
+    && rm -rf /src/.git
+
+FROM node:22-bookworm-slim AS desktop-builder
+WORKDIR /src
 COPY --from=source /src /src
+WORKDIR /src/desktop
 
 RUN --mount=type=cache,target=/root/.npm \
-    if [ -f package-lock.json ]; then npm ci; else npm install; fi
+    npm ci --no-audit --no-fund
 RUN npm run build
 
-FROM python:3.12-slim-bookworm AS runtime
+FROM node:22-bookworm-slim AS orchestrator-deps
+WORKDIR /src/orchestrator
+COPY --from=source /src/orchestrator/package.json /src/orchestrator/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --omit=dev --no-audit --no-fund
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    HOME=/data \
-    API_HOST=127.0.0.1 \
-    VIBE_PORT=8910 \
-    UVICORN_WORKERS=1
-
+FROM node:22-bookworm-slim AS python-deps
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl nginx tini \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libxml2-dev \
+        libxslt1-dev \
+        python3 \
+        python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+COPY --from=source /src/.agents/skills/data-access/scripts/requirements.txt /tmp/requirements.txt
+RUN python3 -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install -r /tmp/requirements.txt
+
+FROM node:22-bookworm-slim AS runtime
+
+ENV NODE_ENV=production \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/data \
+    VRA_DATA_ROOT=/data/.local \
+    VRA_UI_PORT=8080 \
+    VRA_API_PORT=8770 \
+    VRA_LAN=1 \
+    VRA_PYTHON=/opt/venv/bin/python \
+    VRA_SCHEDULER=on
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        libxml2 \
+        libxslt1.1 \
+        python3 \
+        tini \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY --from=source /src/main.py /src/server.py /src/requirements.txt /app/
-COPY --from=source /src/duanxian /app/duanxian
-COPY --from=source /src/vr /app/vr
-COPY --from=source /src/pytest.ini /app/pytest.ini
-COPY --from=frontend-builder /src/frontend/dist /app/frontend/dist
-COPY docker/nginx.conf /etc/nginx/sites-available/default
+COPY --from=source /src /app
+COPY --from=desktop-builder /src/desktop/dist /app/desktop/dist
+COPY --from=desktop-builder /src/desktop/node_modules /app/desktop/node_modules
+COPY --from=orchestrator-deps /src/orchestrator/node_modules /app/orchestrator/node_modules
+COPY --from=python-deps /opt/venv /opt/venv
 COPY docker/entrypoint.sh /usr/local/bin/vibe-astock-entrypoint
+COPY docker/healthcheck.sh /usr/local/bin/vibe-astock-healthcheck
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip \
-    && pip install -r requirements.txt \
-    && mkdir -p /data \
-    && chmod +x /usr/local/bin/vibe-astock-entrypoint
+RUN chmod +x /usr/local/bin/vibe-astock-entrypoint /usr/local/bin/vibe-astock-healthcheck \
+    && mkdir -p /data/.local
 
 EXPOSE 8080
 VOLUME ["/data"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8080/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["/usr/local/bin/vibe-astock-healthcheck"]
 
 ENTRYPOINT ["tini", "--", "vibe-astock-entrypoint"]
