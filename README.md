@@ -80,6 +80,7 @@ VIBE_ASTOCK_REF=v2.1.5 IMAGE_NAME=vibe-astock:local ./scripts/build.sh
 `.github/workflows/publish-image.yml` 会：
 
 - 读取上游 `main` 的完整 SHA，并以该 SHA 构建；
+- 从上游 `desktop/package.json` 读取版本号，同时发布 `v<version>`、`<version>`、上游版本+SHA 和控制仓库提交 SHA 标签；
 - 上游 SHA 未变化时跳过定时构建；
 - 上游结构契约不通过时停止；
 - 构建并发布 `linux/amd64` 与 `linux/arm64`；
@@ -90,7 +91,12 @@ VIBE_ASTOCK_REF=v2.1.5 IMAGE_NAME=vibe-astock:local ./scripts/build.sh
 
 ```text
 ghcr.io/matrixhawk/vibe-astock-docker:latest
+ghcr.io/matrixhawk/vibe-astock-docker:v2.1.5
+ghcr.io/matrixhawk/vibe-astock-docker:2.1.5
+ghcr.io/matrixhawk/vibe-astock-docker:upstream-2.1.5-e0d08d19848b
 ```
+
+其中版本号标签会随上游版本自动更新；`upstream-<version>-<sha12>` 和 `sha-<控制仓库提交>` 标签用于精确回滚，`latest` 继续指向默认分支最近一次成功发布。
 
 ## 许可
 

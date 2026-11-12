@@ -112,6 +112,7 @@ jobs:
           echo "构建上游 ref: $ref"
 
       - name: 校验上游 v2 结构
+        id: upstream_version
         shell: bash
         env:
           BUILD_REF: ${{ steps.build_ref.outputs.ref }}
@@ -123,6 +124,16 @@ jobs:
           git -C "$tmp" fetch --depth 1 origin "$BUILD_REF"
           git -C "$tmp" checkout --detach FETCH_HEAD
           sh scripts/check-upstream-v2.sh "$tmp"
+          version="$(jq -r '.version // empty' "$tmp/desktop/package.json")"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "无法从上游 desktop/package.json 读取有效版本号: $version" >&2
+            exit 1
+          fi
+          upstream_sha="$(git -C "$tmp" rev-parse HEAD)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha12=${upstream_sha:0:12}" >> "$GITHUB_OUTPUT"
+          echo "上游应用版本: $version"
+          echo "上游源码 SHA: $upstream_sha"
 
       - name: 启用 QEMU
         uses: docker/setup-qemu-action@v3
@@ -144,10 +155,14 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=v${{ steps.upstream_version.outputs.version }}
+            type=raw,value=${{ steps.upstream_version.outputs.version }}
+            type=raw,value=upstream-${{ steps.upstream_version.outputs.version }}-${{ steps.upstream_version.outputs.sha12 }}
             type=sha,format=short
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.build_ref.outputs.ref }}
+            org.opencontainers.image.version=${{ steps.upstream_version.outputs.version }}
             org.opencontainers.image.title=Vibe AStock
 
       - name: 构建并推送镜像
